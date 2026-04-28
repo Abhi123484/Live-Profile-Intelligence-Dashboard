@@ -5,6 +5,11 @@ const adminMiddleware = require('../middleware/adminMiddleware');
 const Domain = require('../models/Domain');
 const Question = require('../models/Question');
 const User = require('../models/User');
+const Profile = require('../models/Profile');
+const Result = require('../models/Result');
+const ActivityLog = require('../models/ActivityLog');
+const Badge = require('../models/Badge');
+const Score = require('../models/Score');
 
 // All admin routes require auth + admin
 router.use(authMiddleware, adminMiddleware);
@@ -19,7 +24,7 @@ router.get('/stats', async (req, res) => {
     ]);
     res.json({ totalUsers, totalDomains, totalQuestions });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -29,7 +34,7 @@ router.get('/users', async (req, res) => {
     const users = await User.find({}, 'name email createdAt role').sort({ createdAt: -1 });
     res.json(users);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -50,7 +55,7 @@ router.delete('/users/:id', async (req, res) => {
     await User.findByIdAndDelete(userId);
     res.json({ message: 'User and associated data deleted.' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -69,7 +74,7 @@ router.post('/domains', async (req, res) => {
     await domain.save();
     res.status(201).json(domain);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -79,7 +84,7 @@ router.get('/domains', async (req, res) => {
     const domains = await Domain.find().sort({ createdAt: -1 });
     res.json(domains);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -93,7 +98,7 @@ router.delete('/domains/:id', async (req, res) => {
     await Domain.findByIdAndDelete(req.params.id);
     res.json({ message: 'Domain and associated questions deleted.' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -121,7 +126,7 @@ router.post('/questions', async (req, res) => {
     await q.save();
     res.status(201).json(q);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -136,7 +141,7 @@ router.get('/questions', async (req, res) => {
       .sort({ createdAt: -1 });
     res.json(questions);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -161,7 +166,7 @@ router.put('/questions/:id', async (req, res) => {
     if (!updated) return res.status(404).json({ message: 'Question not found.' });
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -172,7 +177,7 @@ router.delete('/questions/:id', async (req, res) => {
     if (!deleted) return res.status(404).json({ message: 'Question not found.' });
     res.json({ message: 'Question deleted.' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
