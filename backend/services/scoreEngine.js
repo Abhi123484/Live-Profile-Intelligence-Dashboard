@@ -114,3 +114,53 @@ const checkAndAwardBadges = async (userId, profile, results, activityCount, newL
   return newBadges;
 };
 
+const updateScore = async (userId, io) => {
+  try {
+    const oldScore = await Score.findOne({ userId });
+    const oldLevel = oldScore ? oldScore.level : 'Bronze';
+
+    const profile = await Profile.findOne({ userId });
+    const pScore = calculateProfileScore(profile);
+    const aScore = await calculateAssessmentScore(userId);
+    const actScore = await calculateActivityScore(userId);
+
+    const totalScore = Math.round(pScore + aScore + actScore);
+    const level = getLevel(totalScore);
+
+    const results = await Result.find({ userId });
+    const activities = await ActivityLog.find({ userId });
+
+    const updatedScore = await Score.findOneAndUpdate(
+      { userId },
+      {
+        totalScore,
+        profileScore: Math.round(pScore),
+        assessmentScore: Math.round(aScore),
+        activityScore: Math.round(actScore),
+        level,
+        xp: totalScore,
+        updatedAt: Date.now()
+      },
+      { upsert: true, new: true }
+    );
+
+    // Check and award badges
+    const newBadges = await checkAndAwardBadges(
+      userId, profile, results, activities.length, level, oldLevel, io
+    );
+
+    // Emit score update
+    if (io) {
+      io.to(userId.toString()).emit('scoreUpdate', {
+        ...updatedScore.toObject(),
+        newBadges
+      });
+    }
+
+    return updatedScore;
+  } catch (error) {
+    console.error('Error updating score:', error);
+  }
+};
+
+module.exports = { updateScore, BADGE_TYPES };
