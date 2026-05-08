@@ -3,6 +3,8 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Save, Plus, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
 
+const API_BASE = 'http://localhost:5000';
+
 const ProfileBuilder = () => {
   const [profile, setProfile] = useState({
     fullName: '', location: '', gender: '', birthdate: '', phone: '',
@@ -11,6 +13,8 @@ const ProfileBuilder = () => {
   });
   const [domains, setDomains] = useState([]);
   const [skillSelection, setSkillSelection] = useState('');
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState('');
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
@@ -18,10 +22,19 @@ const ProfileBuilder = () => {
 
   useEffect(() => { fetchProfile(); fetchDomains(); }, []);
 
+  useEffect(() => {
+    return () => {
+      if (photoFile && photoPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoFile, photoPreview]);
+
   const fetchProfile = async () => {
     try {
       const res = await axios.get('http://localhost:5000/api/profile');
       if (res.data.userId) {
+        const initialPhotoUrl = res.data.photoUrl || '';
         setProfile({
           fullName: res.data.fullName || '',
           location: res.data.location || '',
@@ -32,8 +45,9 @@ const ProfileBuilder = () => {
           skills: res.data.skills || [],
           education: res.data.education || [],
           links: res.data.links || { github: '', linkedin: '', portfolio: '' },
-          photoUrl: res.data.photoUrl || ''
+          photoUrl: initialPhotoUrl
         });
+        setPhotoPreview(getAbsolutePhotoUrl(initialPhotoUrl));
       }
     } catch (err) { console.error(err); }
   };
@@ -45,6 +59,12 @@ const ProfileBuilder = () => {
     } catch (err) {
       console.error('Failed to load available skills.');
     }
+  };
+
+  const getAbsolutePhotoUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('//')) return url;
+    return `${API_BASE}${url}`;
   };
 
   const handleAddSkill = () => {
@@ -83,6 +103,14 @@ const ProfileBuilder = () => {
     setProfile({ ...profile, education: newEdu });
   };
 
+  const handlePhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    setProfile({ ...profile, photoUrl: '' });
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -95,7 +123,26 @@ const ProfileBuilder = () => {
 
     setSaving(true);
     try {
-      await axios.post('http://localhost:5000/api/profile', profile);
+      if (photoFile) {
+        const formData = new FormData();
+        formData.append('photo', photoFile);
+        formData.append('fullName', profile.fullName);
+        formData.append('location', profile.location);
+        formData.append('gender', profile.gender);
+        formData.append('birthdate', profile.birthdate);
+        formData.append('phone', profile.phone);
+        formData.append('bio', profile.bio);
+        formData.append('skills', JSON.stringify(profile.skills));
+        formData.append('education', JSON.stringify(profile.education));
+        formData.append('links', JSON.stringify(profile.links));
+        if (profile.photoUrl) {
+          formData.append('photoUrl', profile.photoUrl);
+        }
+        await axios.post('http://localhost:5000/api/profile', formData);
+      } else {
+        await axios.post('http://localhost:5000/api/profile', profile);
+      }
+
       setSuccess('Profile saved! Your score has been updated.');
       setTimeout(() => navigate('/'), 1500);
     } catch (err) {
@@ -112,6 +159,7 @@ const ProfileBuilder = () => {
   if (profile.skills.length > 0) completed++;
   if (profile.education.length > 0) completed++;
   if (profile.links.github || profile.links.linkedin || profile.links.portfolio) completed++;
+  if (photoFile) completed++;
   const completionPct = Math.round((completed / 10) * 100);
 
   return (
@@ -167,9 +215,25 @@ const ProfileBuilder = () => {
               <input type="tel" value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} placeholder="+91 98765 43210" />
             </div>
             <div>
-              <label>Photo URL</label>
-              <input type="url" value={profile.photoUrl} onChange={(e) => setProfile({ ...profile, photoUrl: e.target.value })} placeholder="https://example.com/photo.jpg" />
+              <label>Profile Photo</label>
+              <input type="file" accept="image/*" onChange={handlePhotoChange} />
+              <small style={{ display: 'block', marginTop: '8px', color: 'var(--text-muted)' }}>
+                Upload a photo or use the image URL field below.
+              </small>
             </div>
+          </div>
+          {photoPreview && (
+            <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
+              <img src={photoPreview} alt="Profile preview" style={{ width: '110px', height: '110px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} />
+            </div>
+          )}
+          <div style={{ marginBottom: '18px' }}>
+            <label>Photo URL</label>
+            <input type="url" value={profile.photoUrl} onChange={(e) => {
+              setProfile({ ...profile, photoUrl: e.target.value });
+              setPhotoFile(null);
+              setPhotoPreview(e.target.value ? getAbsolutePhotoUrl(e.target.value) : '');
+            }} placeholder="https://example.com/photo.jpg" />
           </div>
           <label>Bio</label>
           <textarea value={profile.bio} onChange={(e) => setProfile({ ...profile, bio: e.target.value })} placeholder="Write a short bio about yourself..." style={{ height: '80px' }} />

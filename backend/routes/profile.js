@@ -1,11 +1,35 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
 const Profile = require('../models/Profile');
 const User = require('../models/User');
 const Domain = require('../models/Domain');
 const ActivityLog = require('../models/ActivityLog');
 const { updateScore } = require('../services/scoreEngine');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, '..', 'public', 'uploads'));
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    cb(null, `${timestamp}-${safeName}`);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed')); 
+    }
+    cb(null, true);
+  }
+});
 
 const authMiddleware = (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -30,9 +54,23 @@ router.get('/', authMiddleware, async (req, res) => {
 });
 
 // Create/Update Profile
-router.post('/', authMiddleware, async (req, res) => {
+router.post('/', authMiddleware, upload.single('photo'), async (req, res) => {
   try {
-    const { fullName, location, gender, birthdate, phone, bio, skills, education, links, photoUrl } = req.body;
+    let { fullName, location, gender, birthdate, phone, bio, skills, education, links, photoUrl } = req.body;
+
+    if (skills && typeof skills === 'string') {
+      skills = JSON.parse(skills);
+    }
+    if (education && typeof education === 'string') {
+      education = JSON.parse(education);
+    }
+    if (links && typeof links === 'string') {
+      links = JSON.parse(links);
+    }
+
+    if (req.file) {
+      photoUrl = `/uploads/${req.file.filename}`;
+    }
 
     if (skills && skills.length > 0) {
       const existingDomains = await Domain.find({ name: { $in: skills } });

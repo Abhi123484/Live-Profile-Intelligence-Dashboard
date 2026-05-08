@@ -5,6 +5,8 @@ import ScoreRing from '../components/ScoreRing';
 import CalendarHeatmap from '../components/CalendarHeatmap';
 import { MapPin, ExternalLink, Award, Zap } from 'lucide-react';
 
+const API_BASE = 'http://localhost:5000';
+
 const LEVEL_COLORS = { Bronze: '#cd7f32', Silver: '#c0c0c0', Gold: '#ffd700', Platinum: '#e5e4e2' };
 
 const PublicProfile = () => {
@@ -20,6 +22,12 @@ const PublicProfile = () => {
       setData(res.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
+  };
+
+  const getPhotoSrc = (photoUrl) => {
+    if (!photoUrl) return '';
+    if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://') || photoUrl.startsWith('//')) return photoUrl;
+    return `${API_BASE}${photoUrl}`;
   };
 
   if (loading) return (
@@ -60,7 +68,7 @@ const PublicProfile = () => {
             background: 'rgba(255,255,255,0.05)'
           }}>
             {profile.photoUrl ? (
-              <img src={profile.photoUrl} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={getPhotoSrc(profile.photoUrl)} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
               <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: '800', color: levelColor }}>
                 {user.name?.[0]?.toUpperCase()}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, Clock, ChevronRight, ChevronLeft, AlertCircle, BookOpen, BarChart } from 'lucide-react';
+import AssessmentResultDetail from '../components/AssessmentResultDetail';
 
 const SkillAssessment = () => {
   const [domains, setDomains] = useState([]);
@@ -12,6 +13,7 @@ const SkillAssessment = () => {
   const [result, setResult] = useState(null);
   const [results, setResults] = useState({}); // domain -> result
   const [viewingResult, setViewingResult] = useState(null);
+  const [viewingResultAssessment, setViewingResultAssessment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [timeLeft, setTimeLeft] = useState(45);
@@ -115,44 +117,67 @@ const SkillAssessment = () => {
     }
   };
 
-  const viewResult = (domainName) => {
-    setViewingResult(results[domainName]);
-  };
-
-  const closeResult = () => {
-    setViewingResult(null);
+  const viewResult = async (domainName) => {
+    try {
+      // Fetch detailed result
+      const res = await axios.get(`http://localhost:5000/api/assessments/result/${domainName}`);
+      setViewingResult(res.data);
+      // Create a mock assessment object for display
+      const mockAssessment = {
+        title: `Daily Quiz: ${domainName}`,
+        domain: domainName
+      };
+      setViewingResultAssessment(mockAssessment);
+    } catch (err) {
+      console.error(err);
+      setError('Unable to load detailed results.');
+    }
   };
 
   const currentQuestion = activeAssessment?.questions[currentIndex];
-  const scoreLabel = (scorePct) => {
-    if (scorePct >= 90) return 'Excellent';
-    if (scorePct >= 75) return 'Great';
-    if (scorePct >= 50) return 'Good';
-    return 'Keep Practicing';
-  };
 
-  if (result) {
-    const scorePct = Math.round(result.score);
-    const color = scorePct >= 80 ? 'var(--success)' : scorePct >= 50 ? 'var(--warning)' : 'var(--danger)';
+  if (result && activeAssessment) {
     return (
-      <div className="animate-in" style={{ maxWidth: '500px', margin: '60px auto' }}>
-        <div className="glass-card" style={{ padding: '48px', textAlign: 'center' }}>
-          <div style={{
-            width: '80px', height: '80px', margin: '0 auto 20px', borderRadius: '50%',
-            background: scorePct >= 80 ? 'var(--success-bg)' : scorePct >= 50 ? 'var(--warning-bg)' : 'var(--danger-bg)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
-            <CheckCircle size={40} color={color} />
-          </div>
-          <h2 style={{ marginBottom: '8px' }}>{scoreLabel(scorePct)}!</h2>
-          <p style={{ marginBottom: '24px' }}>{activeAssessment.title}</p>
-          <div style={{ fontSize: '3.5rem', fontWeight: '900', color, lineHeight: 1, marginBottom: '8px' }}>{scorePct}%</div>
-          <p>{result.correctCount} of {result.total} correct</p>
-          <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
-            <button onClick={() => navigate('/')} className="btn-primary" style={{ flex: 1 }}>Dashboard</button>
-            <button onClick={() => { setActiveAssessment(null); setResult(null); }} className="btn-secondary" style={{ flex: 1 }}>Take Another</button>
-          </div>
-        </div>
+      <AssessmentResultDetail
+        result={result}
+        assessment={activeAssessment}
+        onClose={() => navigate('/')}
+        onRetake={() => {
+          setActiveAssessment(null);
+          setResult(null);
+          setAnswers([]);
+        }}
+      />
+    );
+  }
+
+  if (viewingResult && viewingResultAssessment) {
+    return (
+      <div className="animate-in">
+        <button 
+          onClick={() => { setViewingResult(null); setViewingResultAssessment(null); }}
+          style={{
+            marginBottom: '20px',
+            padding: '8px 16px',
+            background: 'transparent',
+            border: '1px solid var(--glass-border)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-primary)',
+            cursor: 'pointer',
+            fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          ← Back to Assessments
+        </button>
+        <AssessmentResultDetail
+          result={viewingResult}
+          assessment={viewingResultAssessment}
+          onClose={() => { setViewingResult(null); setViewingResultAssessment(null); }}
+          onRetake={() => { setViewingResult(null); setViewingResultAssessment(null); }}
+        />
       </div>
     );
   }
@@ -266,27 +291,6 @@ const SkillAssessment = () => {
               )}
             </div>
           ))}
-        </div>
-      )}
-
-      {viewingResult && (
-        <div className="modal-overlay" onClick={closeResult}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>Today's Result - {viewingResult.domain}</h3>
-            <div style={{ textAlign: 'center', margin: '20px 0' }}>
-              <div style={{ fontSize: '3rem', fontWeight: 'bold', color: 'var(--accent-primary)', marginBottom: '10px' }}>
-                {viewingResult.score}%
-              </div>
-              <p>{viewingResult.correctCount} out of {viewingResult.total} correct</p>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                Attempted on {new Date(viewingResult.attemptedAt).toLocaleDateString()}
-              </p>
-              <p style={{ marginTop: '18px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                Get ready to attend the next 10 interesting questions on "{viewingResult.domain}" tomorrow.
-              </p>
-            </div>
-            <button onClick={closeResult} className="btn-primary" style={{ width: '100%' }}>Close</button>
-          </div>
         </div>
       )}
     </div>

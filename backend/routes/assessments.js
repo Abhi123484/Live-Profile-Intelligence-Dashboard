@@ -118,10 +118,16 @@ router.post('/:id/submit', authMiddleware, async (req, res) => {
 
     const userAnswers = req.body.answers; // Array of indices
     let correctCount = 0;
-    assessment.questions.forEach((q, index) => {
-      if (userAnswers[index] === q.correct) {
-        correctCount++;
-      }
+    const questionsReview = assessment.questions.map((q, index) => {
+      const isCorrect = userAnswers[index] === q.correct;
+      if (isCorrect) correctCount++;
+      return {
+        text: q.text,
+        options: q.options,
+        userAnswer: userAnswers[index],
+        correctAnswer: q.correct,
+        isCorrect
+      };
     });
 
     const score = (correctCount / assessment.questions.length) * 100;
@@ -143,7 +149,12 @@ router.post('/:id/submit', authMiddleware, async (req, res) => {
     const io = req.app.get('io');
     await updateScore(req.userId, io);
 
-    res.json({ score, correctCount, total: assessment.questions.length });
+    res.json({ 
+      score, 
+      correctCount, 
+      total: assessment.questions.length,
+      questionsReview
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -166,12 +177,27 @@ router.get('/result/:domain', authMiddleware, async (req, res) => {
 
     if (!result) return res.status(404).json({ message: 'No result found for today.' });
 
+    // Build detailed review
+    const assessment = result.assessmentId;
+    const questionsReview = assessment.questions.map((q, index) => {
+      const userAnswer = result.answers[index];
+      const isCorrect = userAnswer === q.correct;
+      return {
+        text: q.text,
+        options: q.options,
+        userAnswer,
+        correctAnswer: q.correct,
+        isCorrect
+      };
+    });
+
     res.json({
       score: result.score,
-      correctCount: Math.round((result.score / 100) * 10), // Assuming 10 questions
-      total: 10,
+      correctCount: result.answers.filter((ans, idx) => ans === assessment.questions[idx].correct).length,
+      total: assessment.questions.length,
       domain: result.domain,
-      attemptedAt: result.attemptedAt
+      attemptedAt: result.attemptedAt,
+      questionsReview
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
